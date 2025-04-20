@@ -1,103 +1,189 @@
-import Image from "next/image";
+"use client" // because of useEffect
+import React, { useState, useEffect, useRef } from 'react';
+import * as Tone from 'tone';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
-export default function Home() {
+type FrequencyData = {
+  time: number;
+  left: number;
+  right: number;
+};
+
+const ASMRPlayer = () => {
+  const [leftFrequency, setLeftFrequency] = useState(440);
+  const [rightFrequency, setRightFrequency] = useState(660);
+  const [loopPatternText, setLoopPatternText] = useState('{\n  "pattern": [\n    [50, 48],\n    [48, 50]\n  ]\n}');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [frequencyData, setFrequencyData] = useState<FrequencyData[]>([]);
+  const leftOscillatorRef = useRef<Tone.Oscillator | null>(null);
+  const rightOscillatorRef = useRef<Tone.Oscillator | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    Tone.start();
+  }, []);
+
+  useEffect(() => {
+    if (isPlaying) {
+      startOscillators();
+    } else {
+      stopOscillators();
+    }
+    return () => {
+      stopOscillators();
+    };
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (leftOscillatorRef.current) {
+      leftOscillatorRef.current.frequency.value = leftFrequency;
+    }
+    if (rightOscillatorRef.current) {
+      rightOscillatorRef.current.frequency.value = rightFrequency;
+    }
+  }, [leftFrequency, rightFrequency]);
+
+  const startOscillators = async () => {
+    if (!leftOscillatorRef.current) {
+      leftOscillatorRef.current = new Tone.Oscillator(leftFrequency, "sine").toDestination();
+    }
+    if (!rightOscillatorRef.current) {
+      rightOscillatorRef.current = new Tone.Oscillator(rightFrequency, "sine").toDestination();
+    }
+
+    leftOscillatorRef.current.start();
+    rightOscillatorRef.current.start();
+
+    startLoop();
+  };
+
+  const stopOscillators = () => {
+    if (leftOscillatorRef.current) {
+      leftOscillatorRef.current.stop();
+      leftOscillatorRef.current.dispose();
+      leftOscillatorRef.current = null;
+    }
+    if (rightOscillatorRef.current) {
+      rightOscillatorRef.current.stop();
+      rightOscillatorRef.current.dispose();
+      rightOscillatorRef.current = null;
+    }
+    stopLoop();
+  };
+
+  const parseLoopPattern = () => {
+    try {
+      const parsedPattern = JSON.parse(loopPatternText);
+      if (parsedPattern && parsedPattern.pattern && Array.isArray(parsedPattern.pattern)) {
+        return parsedPattern.pattern as number[][];
+      } else {
+        console.error('Invalid loop pattern format');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error parsing loop pattern:', error);
+      return null;
+    }
+  };
+
+  const startLoop = () => {
+    stopLoop(); // Clear any existing loop
+    const loopPattern = parseLoopPattern();
+    if (loopPattern) {
+      let index = 0;
+      intervalRef.current = setInterval(() => {
+        const [left, right] = loopPattern[index % loopPattern.length];
+        setLeftFrequency(left);
+        setRightFrequency(right);
+        setFrequencyData((prevData) => [
+          ...prevData,
+          {
+            time: Date.now(),
+            left: left,
+            right: right,
+          },
+        ]);
+        index++;
+      }, 500);
+    }
+  };
+
+  const stopLoop = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const handleLoopPatternChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLoopPatternText(e.target.value);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-8">
+      <h1 className="text-3xl font-bold mb-4 text-gray-800">ASMR Player</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      <div className="mb-4 w-full max-w-md">
+        <label htmlFor="leftFrequency" className="block text-gray-700 text-sm font-bold mb-2">Left Frequency (Hz):</label>
+        <input
+          type="range"
+          id="leftFrequency"
+          min="50"
+          max="1000"
+          value={leftFrequency}
+          onChange={(e) => setLeftFrequency(Number(e.target.value))}
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+        />
+        <span className="text-gray-600 text-xs">{leftFrequency} Hz</span>
+      </div>
+
+      <div className="mb-4 w-full max-w-md">
+        <label htmlFor="rightFrequency" className="block text-gray-700 text-sm font-bold mb-2">Right Frequency (Hz):</label>
+        <input
+          type="range"
+          id="rightFrequency"
+          min="50"
+          max="1000"
+          value={rightFrequency}
+          onChange={(e) => setRightFrequency(Number(e.target.value))}
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+        />
+        <span className="text-gray-600 text-xs">{rightFrequency} Hz</span>
+      </div>
+
+      <div className="mb-4 w-full max-w-md">
+        <label htmlFor="loopPattern" className="block text-gray-700 text-sm font-bold mb-2">Loop Pattern (JSON):</label>
+        <textarea
+          id="loopPattern"
+          value={loopPatternText}
+          onChange={handleLoopPatternChange}
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-32"
+        />
+        <p className="text-gray-500 text-xs italic">Example: {'{\n  "pattern": [\n    [50, 48],\n    [48, 50]\n  ]\n}'}</p>
+      </div>
+
+      <button
+        className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ${isPlaying ? 'bg-red-500 hover:bg-red-700' : ''}`}
+        type="button"
+        onClick={() => setIsPlaying(!isPlaying)}
+      >
+        {isPlaying ? 'Stop' : 'Start'}
+      </button>
+
+      <div className="mt-8 w-full max-w-4xl">
+        <h2 className="text-xl font-semibold mb-2 text-gray-800">Frequency Visualizer</h2>
+        <LineChart width={600} height={300} data={frequencyData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="time" tickFormatter={(time) => new Date(time).toLocaleTimeString()} />
+          <YAxis />
+          <Tooltip labelFormatter={(time) => new Date(time as number).toLocaleTimeString()} />
+          <Legend />
+          <Line type="monotone" dataKey="left" stroke="#8884d8" name="Left Frequency" />
+          <Line type="monotone" dataKey="right" stroke="#82ca9d" name="Right Frequency" />
+        </LineChart>
+      </div>
     </div>
   );
-}
+};
+
+export default ASMRPlayer;
