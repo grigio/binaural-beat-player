@@ -1,0 +1,40 @@
+{
+    "pattern": [
+      [35, 30, 4200],  // Gentle theta hum, like a cosmic breeze
+      [30, 36, 3600],  // Soft reversal, drifting inward
+      [42, 36, 4500],  // Slow pulse, deepening calm
+      [38, 45, 3800],  // Subtle rise, like a distant star
+      [55, 49, 4000],  // Warm theta glow, introspective
+      [50, 58, 3400],  // Slight shimmer, fluid shift
+      [70, 62, 4600],  // Expansive wave, dreamy horizon
+      [64, 72, 3900],  // Reverse flow, soft undulation
+      [82, 75, 4300],  // High alpha lift, serene clarity
+      [76, 84, 3700],  // Gentle descent, like falling stardust
+      [40, 34, 4800],  // Return to deep theta, grounding loop
+      [33, 41, 4100]   // Final drift, fading into stillness
+    ]
+  }
+
+
+  431 438 3000
+  431 434 3000
+  431 427 3000
+  431 418 3000
+  431 401 3000
+  431 398 3000
+  431 387 3000
+  300 302 3000
+  300 297 3000
+  300 294 3000
+  300 288 3000
+  300 258 3000
+  300 244 3000
+  300 202 3000
+  236 119 3000
+  151 119 3000
+  124 119 3000
+  119 119 3000
+  114 115 3000
+  95  93 3000
+  77 74 3000
+  63 65 3000

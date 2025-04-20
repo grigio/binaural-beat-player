@@ -1,376 +1,396 @@
 "use client"
-import React, { useState, useEffect, useRef } from 'react';
-import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
+import { useState, useEffect, useRef, ChangeEvent } from 'react';
 
-const ASMRPlayer = () => {
-  // Audio context and oscillators
+type PatternStep = [number, number, number];
+
+interface PatternData {
+  pattern: PatternStep[];
+}
+
+const BinauralPlayer: React.FC = () => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [leftFrequency, setLeftFrequency] = useState(440);
+  const [rightFrequency, setRightFrequency] = useState(430);
+  const [patternInput, setPatternInput] = useState<string>(JSON.stringify({
+    pattern: [
+      [100, 90, 3000],
+      [90, 100, 2500],
+      [110, 95, 3500],
+      [95, 110, 3000],
+      [105, 92, 2500],
+      [92, 105, 2000],
+      [115, 98, 4000],
+      [98, 115, 3500],
+      [108, 94, 3000],
+      [94, 108, 2500],
+      [120, 100, 3500],
+      [100, 120, 3000]
+    ]
+  }, null, 2));
+  const [parsedPattern, setParsedPattern] = useState<PatternStep[]>([]);
+  const [isPatternMode, setIsPatternMode] = useState(false);
+  const [currentPatternIndex, setCurrentPatternIndex] = useState(0);
+  const [patternError, setPatternError] = useState<string | null>(null);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const leftOscillatorRef = useRef<OscillatorNode | null>(null);
   const rightOscillatorRef = useRef<OscillatorNode | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
   const leftPannerRef = useRef<StereoPannerNode | null>(null);
   const rightPannerRef = useRef<StereoPannerNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const patternTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const animationFrameIdRef = useRef<number | null>(null);
+  const animationPhaseRef = useRef<number>(0);
 
-  // State for UI controls
-  const [leftFrequency, setLeftFrequency] = useState<number>(100);
-  const [rightFrequency, setRightFrequency] = useState<number>(100);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [volume, setVolume] = useState<number>(0.5);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [patternText, setPatternText] = useState<string>(`{
-  "pattern": [
-    [100, 90, 3000],
-    [90, 100, 2500],
-    [110, 95, 3500],
-    [95, 110, 3000],
-    [105, 92, 2500],
-    [92, 105, 2000],
-    [115, 98, 4000],
-    [98, 115, 3500],
-    [108, 94, 3000],
-    [94, 108, 2500],
-    [120, 100, 3500],
-    [100, 120, 3000]
-  ]
-}`);
-  const [isPatternPlaying, setIsPatternPlaying] = useState<boolean>(false);
-  const [currentPatternIndex, setCurrentPatternIndex] = useState<number>(0);
-  const [patternData, setPatternData] = useState<[number, number, number][]>([]);
-  const [error, setError] = useState<string>("");
-
-  // Initialize audio context
   useEffect(() => {
+    const initAudio = () => {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+        leftOscillatorRef.current = audioContextRef.current.createOscillator();
+        rightOscillatorRef.current = audioContextRef.current.createOscillator();
+        leftPannerRef.current = audioContextRef.current.createStereoPanner();
+        rightPannerRef.current = audioContextRef.current.createStereoPanner();
+        gainNodeRef.current = audioContextRef.current.createGain();
+
+        leftPannerRef.current.pan.value = -1;
+        rightPannerRef.current.pan.value = 1;
+
+        leftOscillatorRef.current.connect(leftPannerRef.current);
+        rightOscillatorRef.current.connect(rightPannerRef.current);
+        leftPannerRef.current.connect(gainNodeRef.current);
+        rightPannerRef.current.connect(gainNodeRef.current);
+        gainNodeRef.current.connect(audioContextRef.current.destination);
+
+        leftOscillatorRef.current.frequency.setValueAtTime(leftFrequency, audioContextRef.current.currentTime);
+        rightOscillatorRef.current.frequency.setValueAtTime(rightFrequency, audioContextRef.current.currentTime);
+
+        leftOscillatorRef.current.start();
+        rightOscillatorRef.current.start();
+
+        gainNodeRef.current.disconnect();
+      }
+    };
+
+    initAudio();
+
     return () => {
-      // Cleanup on unmount
       if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (patternTimeoutRef.current) {
-        clearTimeout(patternTimeoutRef.current);
+        if (leftOscillatorRef.current) {
+          try { leftOscillatorRef.current.stop(); } catch (e) { console.error("Error stopping left oscillator:", e); }
+        }
+        if (rightOscillatorRef.current) {
+          try { rightOscillatorRef.current.stop(); } catch (e) { console.error("Error stopping right oscillator:", e); }
+        }
+        audioContextRef.current.close().catch(e => console.error("Error closing audio context:", e));
+        audioContextRef.current = null;
+        leftOscillatorRef.current = null;
+        rightOscillatorRef.current = null;
+        leftPannerRef.current = null;
+        rightPannerRef.current = null;
+        gainNodeRef.current = null;
       }
     };
   }, []);
 
-  // Setup audio nodes
-  const setupAudio = () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Create gain node for volume control
-      gainNodeRef.current = audioContextRef.current.createGain();
-      gainNodeRef.current.gain.value = isMuted ? 0 : volume;
-      gainNodeRef.current.connect(audioContextRef.current.destination);
-
-      // Create stereo panners for channel separation
-      leftPannerRef.current = audioContextRef.current.createStereoPanner();
-      leftPannerRef.current.pan.value = -1; // Full left
-      leftPannerRef.current.connect(gainNodeRef.current);
-
-      rightPannerRef.current = audioContextRef.current.createStereoPanner();
-      rightPannerRef.current.pan.value = 1; // Full right
-      rightPannerRef.current.connect(gainNodeRef.current);
-
-      // Create oscillators
-      leftOscillatorRef.current = audioContextRef.current.createOscillator();
-      leftOscillatorRef.current.type = 'sine';
-      leftOscillatorRef.current.frequency.value = leftFrequency;
-      leftOscillatorRef.current.connect(leftPannerRef.current);
-
-      rightOscillatorRef.current = audioContextRef.current.createOscillator();
-      rightOscillatorRef.current.type = 'sine';
-      rightOscillatorRef.current.frequency.value = rightFrequency;
-      rightOscillatorRef.current.connect(rightPannerRef.current);
-
-      // Start oscillators
-      leftOscillatorRef.current.start();
-      rightOscillatorRef.current.start();
-
-      // Create analyser for visualization
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 2048;
-
-      // Connect gain node to analyser
-      gainNodeRef.current.disconnect();
-      gainNodeRef.current.connect(analyserRef.current);
-      analyserRef.current.connect(audioContextRef.current.destination);
-
-      // Start visualization
-      drawVisualization();
-    }
-  };
-
-  // Update oscillator frequencies
   useEffect(() => {
-    if (leftOscillatorRef.current) {
-      leftOscillatorRef.current.frequency.value = leftFrequency;
-    }
-    if (rightOscillatorRef.current) {
-      rightOscillatorRef.current.frequency.value = rightFrequency;
-    }
-  }, [leftFrequency, rightFrequency]);
+    if (!audioContextRef.current || !gainNodeRef.current) return;
 
-  // Update volume and mute
-  useEffect(() => {
-    if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = isMuted ? 0 : volume;
-    }
-  }, [volume, isMuted]);
-
-  // Toggle play/pause
-  const togglePlay = () => {
     if (isPlaying) {
-      // Pause
-      if (audioContextRef.current) {
-        audioContextRef.current.suspend();
+      gainNodeRef.current.connect(audioContextRef.current.destination);
+      if (leftOscillatorRef.current) {
+        leftOscillatorRef.current.frequency.setValueAtTime(leftFrequency, audioContextRef.current.currentTime);
       }
-      setIsPlaying(false);
-      setIsPatternPlaying(false);
-      if (patternTimeoutRef.current) {
-        clearTimeout(patternTimeoutRef.current);
-        patternTimeoutRef.current = null;
+      if (rightOscillatorRef.current) {
+        rightOscillatorRef.current.frequency.setValueAtTime(rightFrequency, audioContextRef.current.currentTime);
+      }
+      if (audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(e => console.error("Error resuming audio context:", e));
       }
     } else {
-      // Play
-      if (!audioContextRef.current) {
-        setupAudio();
-      } else {
-        audioContextRef.current.resume();
+      gainNodeRef.current.disconnect();
+      if (audioContextRef.current.state === 'running') {
+         audioContextRef.current.suspend().catch(e => console.error("Error suspending audio context:", e));
       }
-      setIsPlaying(true);
+    }
+  }, [isPlaying, leftFrequency, rightFrequency]);
+
+  useEffect(() => {
+    if (!isPatternMode && audioContextRef.current && leftOscillatorRef.current && rightOscillatorRef.current) {
+      const now = audioContextRef.current.currentTime;
+      leftOscillatorRef.current.frequency.setValueAtTime(leftFrequency, now);
+      rightOscillatorRef.current.frequency.setValueAtTime(rightFrequency, now);
+    }
+  }, [leftFrequency, rightFrequency, isPatternMode]);
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const playPatternStep = (index: number) => {
+      if (!parsedPattern || parsedPattern.length === 0) {
+        setIsPlaying(false);
+        return;
+      }
+
+      const [leftHz, rightHz, durationMs] = parsedPattern[index];
+
+      setLeftFrequency(leftHz);
+      setRightFrequency(rightHz);
+
+      timeoutId = setTimeout(() => {
+        const nextIndex = (index + 1) % parsedPattern.length;
+        setCurrentPatternIndex(nextIndex);
+      }, durationMs);
+    };
+
+    if (isPlaying && isPatternMode && parsedPattern.length > 0) {
+      playPatternStep(currentPatternIndex);
+    } else if (!isPlaying && isPatternMode) {
+        setCurrentPatternIndex(0);
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isPlaying, isPatternMode, parsedPattern, currentPatternIndex]);
+
+  const parsePattern = () => {
+    try {
+      const data: PatternData = JSON.parse(patternInput);
+      if (Array.isArray(data.pattern) && data.pattern.every(step =>
+        Array.isArray(step) && step.length === 3 &&
+        typeof step[0] === 'number' && step[0] > 0 &&
+        typeof step[1] === 'number' && step[1] > 0 &&
+        typeof step[2] === 'number' && step[2] > 0
+      )) {
+        setParsedPattern(data.pattern);
+        setPatternError(null);
+        setCurrentPatternIndex(0);
+      } else {
+        setParsedPattern([]);
+        setPatternError("Invalid pattern format. Expected array of [number, number, number].");
+      }
+    } catch (error) {
+      setParsedPattern([]);
+      setPatternError("Invalid JSON format.");
+      console.error("Parsing error:", error);
     }
   };
 
-  // Toggle mute
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-  };
+  useEffect(() => {
+    parsePattern();
+  }, [patternInput]);
 
-  // Draw visualization
-  const drawVisualization = () => {
-    if (!analyserRef.current || !canvasRef.current) return;
-
+  useEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const width = canvas.width;
     const height = canvas.height;
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    const amplitude = height / 4;
+    const centerY = height / 2;
 
-    const draw = () => {
-      animationFrameRef.current = requestAnimationFrame(draw);
-      analyserRef.current?.getByteTimeDomainData(dataArray);
+    let lastTimestamp = 0;
 
-      ctx.fillStyle = '#1e1e2e';
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#94e2d5';
-      ctx.beginPath();
-
-      const sliceWidth = width / bufferLength;
-      let x = 0;
-
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = v * height / 2;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
+    const draw = (timestamp: number) => {
+      if (!isPlaying) {
+        ctx.clearRect(0, 0, width, height);
+        if (animationFrameIdRef.current) {
+          cancelAnimationFrame(animationFrameIdRef.current);
+          animationFrameIdRef.current = null;
         }
-
-        x += sliceWidth;
+        return;
       }
 
-      ctx.lineTo(width, height / 2);
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const delta = (timestamp - lastTimestamp) / 1000; // seconds
+      lastTimestamp = timestamp;
+
+      animationPhaseRef.current += delta * 2 * Math.PI * 2; // 2 cycles per second animation speed
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw Left Wave (Blue)
+      ctx.beginPath();
+      ctx.strokeStyle = '#60a5fa';
+      ctx.lineWidth = 2;
+      for (let x = 0; x < width; x++) {
+        // Map x to time in seconds for the wave
+        const time = x / width; // normalized 0 to 1
+        // Calculate angle for sine wave: 2pi * frequency * time + phase
+        const angle = 2 * Math.PI * leftFrequency * time + animationPhaseRef.current;
+        const y = centerY + amplitude * Math.sin(angle);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
       ctx.stroke();
+
+      // Draw Right Wave (Green)
+      ctx.beginPath();
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 2;
+      for (let x = 0; x < width; x++) {
+        const time = x / width;
+        const angle = 2 * Math.PI * rightFrequency * time + animationPhaseRef.current;
+        const y = centerY + amplitude * Math.sin(angle);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      animationFrameIdRef.current = requestAnimationFrame(draw);
     };
 
-    draw();
-  };
+    animationFrameIdRef.current = requestAnimationFrame(draw);
 
-  // Parse and validate pattern
-  const parsePattern = () => {
-    try {
-      const parsed = JSON.parse(patternText);
-      if (!parsed.pattern || !Array.isArray(parsed.pattern)) {
-        throw new Error("Invalid pattern format. Expected a 'pattern' array.");
+    return () => {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
       }
-      
-      const pattern = parsed.pattern;
-      for (const item of pattern) {
-        if (!Array.isArray(item) || item.length !== 3 ||
-            typeof item[0] !== 'number' || 
-            typeof item[1] !== 'number' || 
-            typeof item[2] !== 'number') {
-          throw new Error("Each pattern item must be an array of [leftFreq, rightFreq, duration].");
-        }
-      }
-      
-      setPatternData(pattern as [number, number, number][]);
-      setError("");
-      return pattern as [number, number, number][];
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid JSON format");
-      return null;
+    };
+  }, [isPlaying, leftFrequency, rightFrequency]);
+
+  const handleLeftFrequencyChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const freq = parseFloat(e.target.value);
+    if (!isNaN(freq) && freq > 0) {
+      setLeftFrequency(freq);
+    } else if (e.target.value === '') {
+        setLeftFrequency(0);
     }
   };
 
-  // Play pattern
-  const playPattern = () => {
-    if (isPatternPlaying) {
-      // Stop pattern
-      if (patternTimeoutRef.current) {
-        clearTimeout(patternTimeoutRef.current);
-        patternTimeoutRef.current = null;
-      }
-      setIsPatternPlaying(false);
-      return;
+  const handleRightFrequencyChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const freq = parseFloat(e.target.value);
+    if (!isNaN(freq) && freq > 0) {
+      setRightFrequency(freq);
+    } else if (e.target.value === '') {
+        setRightFrequency(0);
     }
+  };
 
-    const pattern = parsePattern();
-    if (!pattern) return;
+  const handlePatternInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setPatternInput(e.target.value);
+  };
 
-    // Start audio if not already playing
-    if (!isPlaying) {
-      togglePlay();
-    }
+  const togglePlay = () => {
+    setIsPlaying(!isPlaying);
+  };
 
-    setIsPatternPlaying(true);
+  const toggleMode = () => {
+    setIsPatternMode(!isPatternMode);
+    setIsPlaying(false);
     setCurrentPatternIndex(0);
-    playNextInPattern(pattern, 0);
-  };
-
-  // Play next item in pattern
-  const playNextInPattern = (pattern: [number, number, number][], index: number) => {
-    if (!isPatternPlaying || !pattern || index >= pattern.length) {
-      setIsPatternPlaying(false);
-      return;
+    setPatternError(null);
+    if (isPatternMode) {
+    } else {
+        parsePattern();
     }
-
-    const [left, right, duration] = pattern[index];
-    setLeftFrequency(left);
-    setRightFrequency(right);
-    setCurrentPatternIndex(index);
-
-    patternTimeoutRef.current = setTimeout(() => {
-      playNextInPattern(pattern, (index + 1) % pattern.length);
-    }, duration);
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-center text-purple-400">ASMR Frequency Player</h1>
-        
-        {/* Main player controls */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6 shadow-lg">
-          <div className="flex flex-col md:flex-row gap-6 mb-6">
-            {/* Left channel */}
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold mb-2 text-blue-400">Left Channel</h2>
-              <div className="flex items-center gap-4">
-                <input 
-                  type="range" 
-                  min="20" 
-                  max="500" 
-                  value={leftFrequency} 
-                  onChange={(e) => setLeftFrequency(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="text-lg font-mono w-16">{leftFrequency} Hz</span>
-              </div>
-            </div>
-            
-            {/* Right channel */}
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold mb-2 text-red-400">Right Channel</h2>
-              <div className="flex items-center gap-4">
-                <input 
-                  type="range" 
-                  min="20" 
-                  max="500" 
-                  value={rightFrequency} 
-                  onChange={(e) => setRightFrequency(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="text-lg font-mono w-16">{rightFrequency} Hz</span>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-900 text-gray-100 p-8 flex flex-col items-center">
+      <h1 className="text-3xl font-bold mb-8 text-blue-400">Binaural Beat Player</h1>
+
+      <button
+        onClick={togglePlay}
+        className={`px-6 py-3 rounded-lg text-lg font-semibold transition-colors duration-200 mb-8
+          ${isPlaying ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
+          text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900
+          ${isPlaying ? 'focus:ring-red-500' : 'focus:ring-green-500'}`}
+      >
+        {isPlaying ? 'Pause' : 'Play'}
+      </button>
+
+      <div className="mb-8">
+        <button
+          onClick={toggleMode}
+          className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500"
+        >
+          Switch to {isPatternMode ? 'Manual Mode' : 'Pattern Mode'}
+        </button>
+      </div>
+
+      {!isPatternMode && (
+        <div className="flex flex-col md:flex-row gap-8 mb-8 w-full max-w-md">
+          <div className="flex-1">
+            <label htmlFor="leftFreq" className="block text-sm font-medium text-gray-300 mb-2">
+              Left Frequency (Hz)
+            </label>
+            <input
+              id="leftFreq"
+              type="number"
+              value={leftFrequency}
+              onChange={handleLeftFrequencyChange}
+              min="1"
+              step="1"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
-          
-          {/* Playback controls */}
-          <div className="flex items-center justify-between mb-6">
-            <button 
-              onClick={togglePlay}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2"
-            >
-              {isPlaying ? <FaPause /> : <FaPlay />}
-              {isPlaying ? 'Pause' : 'Play'}
-            </button>
-            
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={toggleMute}
-                className="text-gray-300 hover:text-white"
-              >
-                {isMuted ? <FaVolumeMute size={20} /> : <FaVolumeUp size={20} />}
-              </button>
-              <input 
-                type="range" 
-                min="0" 
-                max="1" 
-                step="0.01" 
-                value={volume} 
-                onChange={(e) => setVolume(Number(e.target.value))}
-                className="w-32 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-              />
-            </div>
-          </div>
-          
-          {/* Visualizer */}
-          <div className="bg-gray-900 rounded-lg p-2 mb-4">
-            <canvas 
-              ref={canvasRef} 
-              width={800} 
-              height={200} 
-              className="w-full h-48 rounded-lg"
+          <div className="flex-1">
+            <label htmlFor="rightFreq" className="block text-sm font-medium text-gray-300 mb-2">
+              Right Frequency (Hz)
+            </label>
+            <input
+              id="rightFreq"
+              type="number"
+              value={rightFrequency}
+              onChange={handleRightFrequencyChange}
+              min="1"
+              step="1"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
         </div>
-        
-        {/* Pattern player */}
-        <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-          <h2 className="text-xl font-semibold mb-4 text-green-400">Pattern Sequencer</h2>
-          
-          <textarea 
-            value={patternText} 
-            onChange={(e) => setPatternText(e.target.value)}
-            className="w-full h-48 p-3 bg-gray-900 text-gray-100 rounded-lg font-mono resize-none border border-gray-700 focus:outline-none focus:border-green-400"
+      )}
+
+      {isPatternMode && (
+        <div className="w-full max-w-xl mb-8">
+          <label htmlFor="patternInput" className="block text-sm font-medium text-gray-300 mb-2">
+            Pattern (JSON: [[leftHz, rightHz, durationMs], ...])
+          </label>
+          <textarea
+            id="patternInput"
+            value={patternInput}
+            onChange={handlePatternInputChange}
+            rows={10}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-gray-100 font-mono text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder='e.g., [[100, 90, 3000], [90, 100, 2500]]'
           />
-          {error && <p className="text-red-500 mt-2">{error}</p>}
-          
-          <button 
-            onClick={playPattern}
-            className={`mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full flex items-center justify-center gap-2 w-full ${isPatternPlaying ? 'bg-red-600 hover:bg-red-700' : ''}`}
-          >
-            {isPatternPlaying ? 'Stop Pattern' : 'Play Pattern'}
-          </button>
-          {isPatternPlaying && <p className="mt-2 text-green-300 text-center">Playing pattern step {currentPatternIndex + 1} of {patternData.length}</p>}
+           {patternError && (
+            <p className="mt-2 text-sm text-red-400">{patternError}</p>
+          )}
+           {parsedPattern.length > 0 && (
+            <p className="mt-2 text-sm text-green-400">Pattern parsed successfully. {parsedPattern.length} steps.</p>
+           )}
+           {isPatternMode && isPlaying && parsedPattern.length > 0 && (
+             <p className="mt-2 text-sm text-blue-400">Playing step {currentPatternIndex + 1} of {parsedPattern.length}...</p>
+           )}
         </div>
+      )}
+
+      <div className="w-full max-w-2xl bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <h2 className="text-xl font-semibold text-gray-200 mb-4">Wave Visualizer</h2>
+        <canvas
+          ref={canvasRef}
+          width={600}
+          height={200}
+          className="w-full h-auto border border-gray-600 rounded-md"
+        ></canvas>
+         <div className="mt-4 text-sm text-gray-400">
+            <p>Left Wave: <span className="text-blue-400">Blue</span></p>
+            <p>Right Wave: <span className="text-green-400">Green</span></p>
+            <p>Current Frequencies: Left {leftFrequency.toFixed(2)} Hz, Right {rightFrequency.toFixed(2)} Hz</p>
+         </div>
       </div>
+
     </div>
   );
 };
 
-export default ASMRPlayer;
+export default BinauralPlayer;
