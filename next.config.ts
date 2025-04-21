@@ -1,13 +1,13 @@
 /**
  * @type {import('next').NextConfig}
  */
-const repoName = 'bineural-player'; // Replace with your repository name
-const isGithubActions = process.env.GITHUB_ACTIONS === 'true';
+const repoName = 'bineural-player';
 
 const nextConfig = {
   output: 'export',
-  basePath: isGithubActions ? `/${repoName}` : '',
-  // assetPrefix: isGithubActions ? `/${repoName}/` : '', // Removed assetPrefix
+  // Set basePath and assetPrefix unconditionally for gh-pages deployment
+  basePath: `/${repoName}`,
+  assetPrefix: `/${repoName}/`, // Ensure trailing slash for assetPrefix
 
   // Optional: Change links `/me` -> `/me/` and emit `/me.html` -> `/me/index.html`
   // trailingSlash: true,
