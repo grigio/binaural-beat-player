@@ -31,6 +31,7 @@ const BinauralPlayer: React.FC = () => {
   const [isPatternMode, setIsPatternMode] = useState(false);
   const [currentPatternIndex, setCurrentPatternIndex] = useState(0);
   const [patternError, setPatternError] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false); // Track client-side mount
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const leftOscillatorRef = useRef<OscillatorNode | null>(null);
@@ -184,7 +185,15 @@ const BinauralPlayer: React.FC = () => {
     parsePattern();
   }, [patternInput]);
 
+  // Set isMounted to true only after component mounts on the client
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    // Ensure canvas logic runs only when mounted and playing
+    if (!isMounted || !isPlaying) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -254,7 +263,8 @@ const BinauralPlayer: React.FC = () => {
         cancelAnimationFrame(animationFrameIdRef.current);
       }
     };
-  }, [isPlaying, leftFrequency, rightFrequency]);
+    // Add isMounted to dependency array
+  }, [isPlaying, leftFrequency, rightFrequency, isMounted]);
 
   const handleLeftFrequencyChange = (e: ChangeEvent<HTMLInputElement>) => {
     const freq = parseFloat(e.target.value);
@@ -292,6 +302,11 @@ const BinauralPlayer: React.FC = () => {
         parsePattern();
     }
   };
+
+   // Render a placeholder until mounted on the client to avoid 404 on initial load
+   if (!isMounted) {
+    return <div className="min-h-screen bg-gray-900 flex items-center justify-center"><p className="text-gray-400">Loading Binaural Player...</p></div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 p-8 flex flex-col items-center">
