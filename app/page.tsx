@@ -1,5 +1,6 @@
 "use client"
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import { FaPlay, FaPause, FaSyncAlt } from 'react-icons/fa'; // Import icons
 
 type PatternStep = [number, number, number];
 
@@ -31,6 +32,7 @@ const BinauralPlayer: React.FC = () => {
   const [isPatternMode, setIsPatternMode] = useState(false);
   const [currentPatternIndex, setCurrentPatternIndex] = useState(0);
   const [patternError, setPatternError] = useState<string | null>(null);
+  const [volume, setVolume] = useState(0.5); // Add volume state (0 to 1)
   const [isMounted, setIsMounted] = useState(false); // Track client-side mount
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -62,7 +64,10 @@ const BinauralPlayer: React.FC = () => {
         rightOscillatorRef.current.connect(rightPannerRef.current);
         leftPannerRef.current.connect(gainNodeRef.current);
         rightPannerRef.current.connect(gainNodeRef.current);
-        gainNodeRef.current.connect(audioContextRef.current.destination);
+        gainNodeRef.current.connect(audioContextRef.current.destination); // Keep gain node connected
+
+        // Set initial gain based on state (though it will be quickly updated by useEffect)
+        gainNodeRef.current.gain.setValueAtTime(isPlaying ? volume : 0, audioContextRef.current.currentTime);
 
         leftOscillatorRef.current.frequency.setValueAtTime(leftFrequency, audioContextRef.current.currentTime);
         rightOscillatorRef.current.frequency.setValueAtTime(rightFrequency, audioContextRef.current.currentTime);
@@ -70,7 +75,8 @@ const BinauralPlayer: React.FC = () => {
         leftOscillatorRef.current.start();
         rightOscillatorRef.current.start();
 
-        gainNodeRef.current.disconnect();
+        // Don't disconnect initially, control via gain value
+        // gainNodeRef.current.disconnect();
       }
     };
 
@@ -95,27 +101,31 @@ const BinauralPlayer: React.FC = () => {
     };
   }, []);
 
+  // Update Gain Node value based on isPlaying and volume state
   useEffect(() => {
-    if (!audioContextRef.current || !gainNodeRef.current) return;
-
-    if (isPlaying) {
-      gainNodeRef.current.connect(audioContextRef.current.destination);
-      if (leftOscillatorRef.current) {
-        leftOscillatorRef.current.frequency.setValueAtTime(leftFrequency, audioContextRef.current.currentTime);
-      }
-      if (rightOscillatorRef.current) {
-        rightOscillatorRef.current.frequency.setValueAtTime(rightFrequency, audioContextRef.current.currentTime);
-      }
-      if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch(e => console.error("Error resuming audio context:", e));
-      }
-    } else {
-      gainNodeRef.current.disconnect();
-      if (audioContextRef.current.state === 'running') {
-         audioContextRef.current.suspend().catch(e => console.error("Error suspending audio context:", e));
-      }
+    if (gainNodeRef.current && audioContextRef.current) {
+      const targetGain = isPlaying ? volume : 0;
+      // Use linearRampToValueAtTime for smoother transitions
+      gainNodeRef.current.gain.linearRampToValueAtTime(targetGain, audioContextRef.current.currentTime + 0.1); // 100ms ramp
     }
-  }, [isPlaying, leftFrequency, rightFrequency]);
+  }, [isPlaying, volume]);
+
+  // Update Oscillator Frequencies when they change or when playing starts
+  useEffect(() => {
+    if (!audioContextRef.current || !gainNodeRef.current || !isPlaying) return;
+
+    if (leftOscillatorRef.current) {
+      leftOscillatorRef.current.frequency.setValueAtTime(leftFrequency, audioContextRef.current.currentTime);
+    }
+    if (rightOscillatorRef.current) {
+      rightOscillatorRef.current.frequency.setValueAtTime(rightFrequency, audioContextRef.current.currentTime);
+    }
+    // Resume context if suspended when play is initiated
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(e => console.error("Error resuming audio context:", e));
+    }
+    // No need to suspend context when pausing, just set gain to 0
+  }, [isPlaying, leftFrequency, rightFrequency]); // Keep dependencies
 
   useEffect(() => {
     if (!isPatternMode && audioContextRef.current && leftOscillatorRef.current && rightOscillatorRef.current) {
@@ -288,6 +298,11 @@ const BinauralPlayer: React.FC = () => {
     setPatternInput(e.target.value);
   };
 
+  const handleVolumeChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+  };
+
   const togglePlay = () => {
     setIsPlaying(!isPlaying);
   };
@@ -309,100 +324,144 @@ const BinauralPlayer: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 p-8 flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-8 text-blue-400">Binaural Beat Player</h1>
+    // Adjusted padding and main container for responsiveness
+    <div className="min-h-screen bg-gray-900 text-gray-100 p-4 md:p-8 flex flex-col items-center">
+      <h1 className="text-2xl md:text-3xl font-bold mb-6 text-blue-400 text-center">Binaural Beat Player</h1>
 
-      <button
-        onClick={togglePlay}
-        className={`px-6 py-3 rounded-lg text-lg font-semibold transition-colors duration-200 mb-8
-          ${isPlaying ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
-          text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900
-          ${isPlaying ? 'focus:ring-red-500' : 'focus:ring-green-500'}`}
-      >
-        {isPlaying ? 'Pause' : 'Play'}
-      </button>
+       {/* Visualizer - Moved to top */}
+       <div className="w-full max-w-2xl bg-gray-800 rounded-lg p-3 md:p-4 border border-gray-700 mb-6">
+        {/* Removed h2 heading */}
+        {/* Canvas container to help with responsiveness */}
+        <div className="relative w-full" style={{ paddingBottom: '33.33%' }}> {/* Aspect ratio 3:1 */}
+          <canvas
+            ref={canvasRef}
+            // Removed fixed width/height, using CSS for sizing
+            className="absolute top-0 left-0 w-full h-full border border-gray-600 rounded-md"
+          ></canvas>
+        </div>
+         <div className="mt-3 text-xs md:text-sm text-gray-400 text-center">
+            {/* Removed color key text */}
+            <p>Current: L {leftFrequency.toFixed(1)} Hz | R {rightFrequency.toFixed(1)} Hz</p>
+         </div>
+      </div>
 
-      <div className="mb-8">
+      {/* Play/Mode Controls Container - Centered */}
+      <div className="flex justify-center items-center gap-6 mb-6 w-full">
+        <button
+          onClick={togglePlay}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+          // Centered Play Button Styling
+          className={`p-4 rounded-full text-2xl transition-colors duration-200
+            ${isPlaying ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
+            text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900
+            ${isPlaying ? 'focus:ring-red-500' : 'focus:ring-green-500'}`}
+        >
+          {isPlaying ? <FaPause /> : <FaPlay />}
+        </button>
+
         <button
           onClick={toggleMode}
-          className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500"
+          aria-label={`Switch to ${isPatternMode ? 'Manual Mode' : 'Pattern Mode'}`}
+          title={`Switch to ${isPatternMode ? 'Manual Mode' : 'Pattern Mode'}`} // Tooltip
+          className="px-4 py-2 rounded-md text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500"
         >
-          Switch to {isPatternMode ? 'Manual Mode' : 'Pattern Mode'}
+          {isPatternMode ? 'Manual' : 'Pattern'}
         </button>
       </div>
 
-      {!isPatternMode && (
-        <div className="flex flex-col md:flex-row gap-8 mb-8 w-full max-w-md">
-          <div className="flex-1">
-            <label htmlFor="leftFreq" className="block text-sm font-medium text-gray-300 mb-2">
-              Left Frequency (Hz)
+      {/* Sliders Row - New Row for Left, Right, Volume */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-center gap-6 mb-6 w-full max-w-2xl">
+
+        {/* Left Frequency Slider (Conditional) */}
+        {!isPatternMode && (
+          <div className="flex-1 w-full sm:w-auto">
+            <label htmlFor="leftFreq" className="block text-xs font-medium text-gray-300 mb-1 text-center sm:text-left">
+              Left Freq
             </label>
+            {/* Removed number input for simplicity */}
             <input
-              id="leftFreq"
-              type="number"
+              id="leftFreqRange" // Changed id to avoid conflict if number input is added back
+              type="range"
+              min="20"
+              max="1000"
+              step="1"
               value={leftFrequency}
               onChange={handleLeftFrequencyChange}
-              min="1"
-              step="1"
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              aria-labelledby="leftFreq"
             />
+             <p className="text-xs text-gray-400 text-center mt-1">{leftFrequency.toFixed(1)} Hz</p>
           </div>
-          <div className="flex-1">
-            <label htmlFor="rightFreq" className="block text-sm font-medium text-gray-300 mb-2">
-              Right Frequency (Hz)
-            </label>
+        )}
+
+        {/* Volume Control - Moved to this row */}
+        <div className="flex-1 w-full sm:w-auto">
+           <label htmlFor="volume" className="block text-xs font-medium text-gray-300 mb-1 text-center sm:text-left">
+            Volume
+          </label>
             <input
-              id="rightFreq"
-              type="number"
+              id="volume"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={volume}
+              onChange={handleVolumeChange}
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500" // Changed accent color
+              aria-label={`Volume ${Math.round(volume * 100)}%`}
+            />
+             <p className="text-xs text-gray-400 text-center mt-1">{Math.round(volume * 100)}%</p>
+        </div>
+
+         {/* Right Frequency Slider (Conditional) */}
+        {!isPatternMode && (
+          <div className="flex-1 w-full sm:w-auto">
+            <label htmlFor="rightFreq" className="block text-xs font-medium text-gray-300 mb-1 text-center sm:text-left">
+              Right Freq
+            </label>
+             {/* Removed number input for simplicity */}
+             <input
+              id="rightFreqRange" // Changed id
+              type="range"
+              min="20"
+              max="1000"
+              step="1"
               value={rightFrequency}
               onChange={handleRightFrequencyChange}
-              min="1"
-              step="1"
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+              aria-labelledby="rightFreq"
             />
+             <p className="text-xs text-gray-400 text-center mt-1">{rightFrequency.toFixed(1)} Hz</p>
           </div>
-        </div>
-      )}
+        )}
+      </div> {/* End Sliders Row */}
 
+
+      {/* Pattern Input Area (Conditional) */}
       {isPatternMode && (
-        <div className="w-full max-w-xl mb-8">
-          <label htmlFor="patternInput" className="block text-sm font-medium text-gray-300 mb-2">
-            Pattern (JSON: [[leftHz, rightHz, durationMs], ...])
+        <div className="w-full max-w-xl mb-6">
+          <label htmlFor="patternInput" className="block text-sm font-medium text-gray-300 mb-2 text-center">
+            Pattern Sequence (JSON: [[L_Hz, R_Hz, duration_ms], ...])
           </label>
           <textarea
             id="patternInput"
             value={patternInput}
             onChange={handlePatternInputChange}
-            rows={10}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-gray-100 font-mono text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            rows={5} // Slightly reduced rows
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-gray-100 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             placeholder='e.g., [[100, 90, 3000], [90, 100, 2500]]'
           />
            {patternError && (
-            <p className="mt-2 text-sm text-red-400">{patternError}</p>
-          )}
-           {parsedPattern.length > 0 && (
-            <p className="mt-2 text-sm text-green-400">Pattern parsed successfully. {parsedPattern.length} steps.</p>
+            <p className="mt-2 text-sm text-red-400 text-center">{patternError}</p>
            )}
-           {isPatternMode && isPlaying && parsedPattern.length > 0 && (
-             <p className="mt-2 text-sm text-blue-400">Playing step {currentPatternIndex + 1} of {parsedPattern.length}...</p>
+           {parsedPattern.length > 0 && !patternError && (
+            <p className="mt-2 text-sm text-green-400 text-center">Pattern loaded: {parsedPattern.length} steps.</p>
+           )}
+           {isPatternMode && isPlaying && parsedPattern.length > 0 && !patternError && (
+             <p className="mt-2 text-sm text-blue-400 text-center">Playing step {currentPatternIndex + 1}/{parsedPattern.length}...</p>
            )}
         </div>
       )}
-
-      <div className="w-full max-w-2xl bg-gray-800 rounded-lg p-4 border border-gray-700">
-        <h2 className="text-xl font-semibold text-gray-200 mb-4">Wave Visualizer</h2>
-        <canvas
-          ref={canvasRef}
-          width={600}
-          height={200}
-          className="w-full h-auto border border-gray-600 rounded-md"
-        ></canvas>
-         <div className="mt-4 text-sm text-gray-400">
-            <p>Left Wave: <span className="text-blue-400">Blue</span></p>
-            <p>Right Wave: <span className="text-green-400">Green</span></p>
-            <p>Current Frequencies: Left {leftFrequency.toFixed(2)} Hz, Right {rightFrequency.toFixed(2)} Hz</p>
-         </div>
-      </div>
 
     </div>
   );
