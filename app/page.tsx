@@ -110,30 +110,26 @@ const BinauralPlayer: React.FC = () => {
     }
   }, [isPlaying, volume]);
 
-  // Update Oscillator Frequencies when they change or when playing starts
+  // Update Oscillator Frequencies when they change or when playing starts (MANUAL MODE ONLY)
   useEffect(() => {
-    if (!audioContextRef.current || !gainNodeRef.current || !isPlaying) return;
+    // Only apply immediate frequency changes in manual mode
+    if (!isPatternMode && audioContextRef.current && gainNodeRef.current && isPlaying) {
+        const now = audioContextRef.current.currentTime;
+        if (leftOscillatorRef.current) {
+            leftOscillatorRef.current.frequency.setValueAtTime(leftFrequency, now);
+        }
+        if (rightOscillatorRef.current) {
+            rightOscillatorRef.current.frequency.setValueAtTime(rightFrequency, now);
+        }
+    }
 
-    if (leftOscillatorRef.current) {
-      leftOscillatorRef.current.frequency.setValueAtTime(leftFrequency, audioContextRef.current.currentTime);
-    }
-    if (rightOscillatorRef.current) {
-      rightOscillatorRef.current.frequency.setValueAtTime(rightFrequency, audioContextRef.current.currentTime);
-    }
-    // Resume context if suspended when play is initiated
-    if (audioContextRef.current.state === 'suspended') {
+    // Resume context if suspended when play is initiated (applies to both modes)
+    if (isPlaying && audioContextRef.current && audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume().catch(e => console.error("Error resuming audio context:", e));
     }
     // No need to suspend context when pausing, just set gain to 0
-  }, [isPlaying, leftFrequency, rightFrequency]); // Keep dependencies
+  }, [isPlaying, leftFrequency, rightFrequency, isPatternMode]); // Added isPatternMode dependency
 
-  useEffect(() => {
-    if (!isPatternMode && audioContextRef.current && leftOscillatorRef.current && rightOscillatorRef.current) {
-      const now = audioContextRef.current.currentTime;
-      leftOscillatorRef.current.frequency.setValueAtTime(leftFrequency, now);
-      rightOscillatorRef.current.frequency.setValueAtTime(rightFrequency, now);
-    }
-  }, [leftFrequency, rightFrequency, isPatternMode]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -145,9 +141,18 @@ const BinauralPlayer: React.FC = () => {
       }
 
       const [leftHz, rightHz, durationMs] = parsedPattern[index];
+      const rampTime = 0.1; // Smooth transition time in seconds (e.g., 100ms)
+      const now = audioContextRef.current?.currentTime ?? 0;
 
+      // Update state for UI display
       setLeftFrequency(leftHz);
       setRightFrequency(rightHz);
+
+      // Apply smooth frequency ramp using Web Audio API
+      if (audioContextRef.current && leftOscillatorRef.current && rightOscillatorRef.current) {
+        leftOscillatorRef.current.frequency.linearRampToValueAtTime(leftHz, now + rampTime);
+        rightOscillatorRef.current.frequency.linearRampToValueAtTime(rightHz, now + rampTime);
+      }
 
       timeoutId = setTimeout(() => {
         const nextIndex = (index + 1) % parsedPattern.length;
