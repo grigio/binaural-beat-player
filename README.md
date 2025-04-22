@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Binaural Beat Player 🎧
 
-## Getting Started
+A web application built with Next.js, React, and TypeScript to generate and play binaural beats. Users can manually control frequencies, play predefined patterns, adjust volume, and visualize the audio waves.
 
-First, run the development server:
+## ✨ Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+*   **Manual Frequency Control:** Set specific frequencies (1-600 Hz) for the left and right audio channels using sliders.
+*   **Pattern Mode:** Play sequences of binaural beats defined in a JSON format. Each step includes left frequency, right frequency, and duration.
+*   **Volume Control:** Adjust the overall volume of the generated audio.
+*   **Audio Visualization:** See a real-time representation of the left (blue) and right (green) audio waves on a canvas.
+*   **Play/Pause Control:** Easily start and stop the audio playback.
+*   **Mode Switching:** Toggle between Manual and Pattern modes.
+*   **Responsive Design:** Adapts to different screen sizes using Tailwind CSS.
+*   **Icons:** Uses `react-icons` for UI elements like play/pause buttons.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Getting Started
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1.  **Clone the repository (if you haven't already):**
+    ```bash
+    git clone <your-repository-url>
+    cd binaural-beat-player
+    ```
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    # or
+    yarn install
+    # or
+    pnpm install
+    ```
+3.  **Run the development server:**
+    ```bash
+    npm run dev
+    # or
+    yarn dev
+    # or
+    pnpm dev
+    ```
+4.  Open [http://localhost:3000](http://localhost:3000) in your browser to use the player.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Technology Stack
 
-## Learn More
+*   [Next.js](https://nextjs.org/) - React framework for server-side rendering and static site generation.
+*   [React](https://reactjs.org/) - JavaScript library for building user interfaces.
+*   [TypeScript](https://www.typescriptlang.org/) - Typed superset of JavaScript.
+*   [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework.
+*   [React Icons](https://react-icons.github.io/react-icons/) - Library for including popular icons in React projects.
+*   [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) - Used for generating and manipulating audio directly in the browser.
 
-To learn more about Next.js, take a look at the following resources:
+## 📄 License
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License - see the LICENSE file for details (if applicable).
