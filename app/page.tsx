@@ -387,8 +387,8 @@ const BinauralPlayer: React.FC = () => {
             <input
               id="leftFreqRange" // Changed id to avoid conflict if number input is added back
               type="range"
-              min="20"
-              max="1000"
+              min="1"
+              max="600"
               step="1"
               value={leftFrequency}
               onChange={handleLeftFrequencyChange}
@@ -428,8 +428,8 @@ const BinauralPlayer: React.FC = () => {
              <input
               id="rightFreqRange" // Changed id
               type="range"
-              min="20"
-              max="1000"
+              min="1"
+              max="600"
               step="1"
               value={rightFrequency}
               onChange={handleRightFrequencyChange}
