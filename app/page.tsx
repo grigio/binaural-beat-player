@@ -101,14 +101,34 @@ const BinauralPlayer: React.FC = () => {
     };
   }, []);
 
-  // Update Gain Node value based on isPlaying and volume state
+  // Update Gain Node value based on isPlaying, volume, and frequencies
   useEffect(() => {
     if (gainNodeRef.current && audioContextRef.current) {
-      const targetGain = isPlaying ? volume : 0;
+      // Calculate volume coefficient based on average frequency
+      const calculateVolumeCoefficient = (freq: number): number => {
+        // Clamp frequency to the defined range [1, 600] for calculation
+        const clampedFreq = Math.max(1, Math.min(freq, 600));
+        // Linear interpolation: y = y1 + ((x - x1) * (y2 - y1)) / (x2 - x1)
+        // Here: x=clampedFreq, x1=1, y1=1.0, x2=600, y2=0.6
+        const y1 = 1.0;
+        const y2 = 0.6;
+        const x1 = 1;
+        const x2 = 600;
+        // Avoid division by zero if x1 === x2 (though not possible here)
+        const coefficient = y1 + ((clampedFreq - x1) * (y2 - y1)) / (x2 - x1);
+        return coefficient;
+      };
+
+      // Use average frequency, ensuring it's at least 1 Hz
+      const avgFrequency = Math.max(1, (leftFrequency + rightFrequency) / 2);
+      const coefficient = calculateVolumeCoefficient(avgFrequency);
+
+      const targetGain = isPlaying ? volume * coefficient : 0;
       // Use linearRampToValueAtTime for smoother transitions
       gainNodeRef.current.gain.linearRampToValueAtTime(targetGain, audioContextRef.current.currentTime + 0.1); // 100ms ramp
     }
-  }, [isPlaying, volume]);
+    // Add frequencies to dependency array
+  }, [isPlaying, volume, leftFrequency, rightFrequency]);
 
   // Update Oscillator Frequencies when they change or when playing starts (MANUAL MODE ONLY)
   useEffect(() => {
