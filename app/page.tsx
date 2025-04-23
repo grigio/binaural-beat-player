@@ -351,7 +351,7 @@ const BinauralPlayer: React.FC = () => {
   return (
     // Adjusted padding and main container for responsiveness
     <div className="min-h-screen bg-gray-900 text-gray-100 p-4 md:p-8 flex flex-col items-center">
-      <h1 className="text-2xl md:text-3xl font-bold mb-6 text-blue-400 text-center">Binaural Beat Player</h1>
+      <h1 className="text-2xl md:text-3xl font-bold mb-6 text-blue-400 text-center">🎧 Binaural Beat Player</h1>
 
        {/* Visualizer - Moved to top */}
        <div className="w-full max-w-2xl bg-gray-800 rounded-lg p-3 md:p-4 border border-gray-700 mb-6">
