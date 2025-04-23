@@ -111,7 +111,7 @@ const BinauralPlayer: React.FC = () => {
         // Linear interpolation: y = y1 + ((x - x1) * (y2 - y1)) / (x2 - x1)
         // Here: x=clampedFreq, x1=1, y1=1.0, x2=600, y2=0.6
         const y1 = 1.0;
-        const y2 = 0.6;
+        const y2 = 0.3;
         const x1 = 1;
         const x2 = 600;
         // Avoid division by zero if x1 === x2 (though not possible here)
