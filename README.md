@@ -2,6 +2,16 @@
 
 A web application built with Next.js, React, and TypeScript to generate and play binaural beats. Users can manually control frequencies, play predefined patterns, adjust volume, and visualize the audio waves.
 
+<p align="center">
+  <img src="public/binaural-beat-player.png" alt="Binaural Beat Player Screenshot" width="80%">
+</p>
+<p align="center">
+  <em>Main interface of the Binaural Beat Player showing frequency controls and visualization.</em>
+</p>
+<p align="center">Go to 
+  <a href="https://grigio.github.io/binaural-beat-player/" target="_blank">🎧 Binaural Beat Player</a>
+</p>
+
 ## ✨ Features
 
 *   **Manual Frequency Control:** Set specific frequencies (1-600 Hz) for the left and right audio channels using sliders.
