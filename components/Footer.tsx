@@ -60,6 +60,12 @@ const Footer = () => {
                 <p className="text-xs break-all bg-gray-700 p-2 rounded mt-1 text-gray-300">{moneroAddress}</p>
                 {/* Add QR Code component if desired */}
               </div>
+              <div>
+                <p className="font-medium text-gray-300">Ko-fi:</p> {/* Lighter label */}
+                <a href="https://ko-fi.com/binauralbeatplayer" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline break-all">
+                  Support me on Ko-fi
+                </a>
+              </div>
             </div>
           </div>
         </div>
