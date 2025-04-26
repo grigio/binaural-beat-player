@@ -24,7 +24,7 @@ const Footer = () => {
         <span>created by me</span>
         <div className="flex items-center space-x-4">
           {/* Updated link hover color and use FaGithub */}
-          <Link href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-200">
+          <Link href="https://github.com/grigio/binaural-beat-player" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-200">
             <FaGithub className="h-5 w-5" /> {/* Use FaGithub icon */}
           </Link>
           {/* Updated button styles */}
