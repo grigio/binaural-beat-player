@@ -5,20 +5,19 @@ A Next.js-based binaural beat player with Web Audio API integration, migrated fr
 
 ## Technology Stack
 - **Runtime**: Bun (>=1.0.0)
- - **Framework**: Next.js 14.2.15 with React 18.3.1
-- **Styling**: Tailwind CSS v4
- - **Audio**: Web Audio API
- - **Icons**: Lucide React & React Icons
+- **Framework**: Next.js 14.2.15 with React 18.3.1
+- **Styling**: Tailwind CSS v4 with @theme inline syntax
+- **Audio**: Web Audio API (native browser API)
+- **Icons**: React Icons (Font Awesome and Lucide)
 - **Deployment**: GitHub Pages (static export)
 
 ## Development Commands
 
-### Core Commands
 ```bash
 # Install dependencies
 bun install
 
-# Start development server with Turbopack
+# Start development server
 bun run dev
 
 # Build for production
@@ -26,9 +25,6 @@ bun run build
 
 # Start production server
 bun run start
-
-# Run linting
-bun run lint
 
 # Deploy to GitHub Pages
 bun run deploy
@@ -47,16 +43,18 @@ bun run deploy
 ├── app/                    # Next.js App Router
 │   ├── page.tsx           # Main binaural player component
 │   ├── layout.tsx         # Root layout
-│   └── globals.css        # Global styles
+│   └── globals.css        # Global styles with @theme config
 ├── components/            # Reusable components
-│   └── Footer.tsx         # Footer with donate links
+│   └── Footer.tsx         # Footer with donate popup
 ├── bineural-songs/        # Predefined patterns
-│   ├── ai-gemini.json     # AI-focused pattern
+│   ├── ai-gemini.json     # AI-focused pattern (30Hz binaural beats)
 │   ├── creative.json      # Creativity enhancement
 │   ├── intro.json         # Introduction pattern
 │   ├── relaxing.json      # Relaxation pattern
 │   └── scala.json         # Scala tuning pattern
-└── public/               # Static assets
+├── public/               # Static assets
+├── next.config.js        # Conditional static export config
+└── tsconfig.json         # TypeScript config with path aliases
 ```
 
 ## Audio Implementation Details
@@ -73,6 +71,8 @@ Volume automatically adjusts based on average frequency:
 - 600 Hz: 30% volume
 - Linear interpolation between endpoints
 
+**Mathematical formula**: `volume_coefficient = 1.0 + ((clamped_freq - 1) * (0.3 - 1.0)) / (600 - 1)`
+
 ### Pattern Format
 ```json
 {
@@ -85,16 +85,87 @@ Volume automatically adjusts based on average frequency:
 
 ## Migration Notes (Node.js → Bun)
 
-### Removed Dependencies
-- `@types/node`: No longer needed with Bun's built-in Node.js compatibility
-- `tone`: Removed to prevent localStorage SSR issues
-- `recharts`: Removed to prevent localStorage SSR issues
-- `package-lock.json`: Replaced with `bun.lockb`
+### Dependencies
+- **Removed**: `@types/node` - no longer needed with Bun's built-in Node.js compatibility
+- **Previously removed**: `tone`, `recharts` (removed to prevent localStorage SSR issues)
+- **Package management**: `package-lock.json` replaced with `bun.lockb`
 
 ### Configuration Changes
 - **next.config.js**: Renamed from .ts for compatibility, static export for production
 - **package.json**: Added Bun engine requirement
 - **.gitignore**: Added `bun.lockb` and `bun-debug.log*`
+
+## Advanced Architecture Patterns
+
+### SSR Hydration Strategy
+The application uses a critical SSR-safe pattern to prevent hydration mismatches:
+```tsx
+const [isMounted, setIsMounted] = useState(false);
+
+useEffect(() => {
+  setIsMounted(true);
+}, []);
+
+if (!isMounted) {
+  return <div>Loading...</div>; // Client-side only content
+}
+```
+
+### Audio Context Management
+Complex audio node management using refs to maintain persistent state:
+- **Oscillator reuse**: Created once, frequencies updated dynamically
+- **Gain-based playback**: Audio continues with gain = 0 instead of disconnection
+- **Smooth transitions**: `linearRampToValueAtTime` for frequency/volume changes
+- **Proper cleanup**: Error handling for oscillator.stop() and audioContext.close()
+
+### Component Architecture
+- **Single large component**: Audio state is tightly coupled, making componentization challenging
+- **Ref-based audio management**: Audio nodes persist across re-renders
+- **Complex state dependencies**: Multiple useEffect hooks with carefully managed dependency arrays
+
+### Pattern Execution System
+Asynchronous pattern execution using setTimeout:
+```tsx
+const playPatternStep = (index: number) => {
+  const [leftHz, rightHz, durationMs] = parsedPattern[index];
+  
+  // Smooth frequency ramping
+  leftOscillator.frequency.linearRampToValueAtTime(leftHz, now + rampTime);
+  
+  timeoutId = setTimeout(() => {
+    const nextIndex = (index + 1) % parsedPattern.length;
+    setCurrentPatternIndex(nextIndex);
+  }, durationMs);
+};
+```
+
+## Configuration Nuances
+
+### Conditional Static Export
+```javascript
+const nextConfig = {
+  output: process.env.NODE_ENV === 'production' ? 'export' : undefined,
+  basePath: isProd ? '/binaural-beat-player' : undefined,
+  assetPrefix: isProd ? '/binaural-beat-player/' : undefined,
+};
+```
+
+### TypeScript Path Aliases
+```json
+{
+  "paths": {
+    "@/*": ["./*"]
+  }
+}
+```
+
+### Environment Variable Injection
+Package version exposed via next.config.js:
+```javascript
+env: {
+  CUSTOM_VERSION: version,
+}
+```
 
 ### Version Compatibility
 - Downgraded Next.js from 15.3.1 to 14.2.15 for stability
@@ -125,18 +196,6 @@ Volume automatically adjusts based on average frequency:
 - Keep audio state separate from UI state
 - Use refs for persistent audio objects
 - Implement proper error boundaries
-
-## Deployment
-The app builds as a static site for GitHub Pages:
-- Output directory: `out/`
-- Base path: `/binaural-beat-player` (production only)
-- Automatic .nojekyll file generation
-
-## Browser Compatibility
-- Modern browsers with Web Audio API support
-- Chrome/Edge: Full support
-- Firefox: Full support
-- Safari: Partial support (may require user interaction)
 
 ## Deployment
 The app builds as a static site for GitHub Pages:
