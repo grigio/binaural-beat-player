@@ -1,4 +1,4 @@
-# Binaural Beat Player 🎧
+# Binaural Beat Player 🎧 
 
 A web application built with Next.js, React, and Bun runtime to generate and play binaural beats. Users can manually control frequencies, play predefined patterns, adjust volume, and visualize the audio waves.
 
@@ -8,9 +8,10 @@ A web application built with Next.js, React, and Bun runtime to generate and pla
 <p align="center">
   <em>Main interface of the Binaural Beat Player showing frequency controls and visualization.</em>
 </p>
-<p align="center">Go to 
-  <a href="https://grigio.github.io/bineural-player/" target="_blank">🎧 Binaural Beat Player</a>
-</p>
+<div align="center">
+  <h3 style="display: inline;">Go to <a href="https://grigio.github.io/binaural-beat-player/" target="_blank">🎧 Binaural Beat Player</a></h3>
+  &nbsp;&nbsp;<img alt="version" src="https://img.shields.io/github/v/tag/grigio/binaural-beat-player?style=flat-square&label=latest%20release" style="display: inline; vertical-align: middle;" />
+</div>
 
 ## ⚡ Bun Runtime
 
