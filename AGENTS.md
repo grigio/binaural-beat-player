@@ -5,10 +5,10 @@ A Next.js-based binaural beat player with Web Audio API integration, migrated fr
 
 ## Technology Stack
 - **Runtime**: Bun (>=1.0.0)
-- **Framework**: Next.js 14.2.15 with React 18.3.1
-- **Styling**: Tailwind CSS v4 with @theme inline syntax
+- **Framework**: Next.js 14.2.35 with React 18.3.1
+- **Styling**: Tailwind CSS v4.1.18 with @theme inline syntax
 - **Audio**: Web Audio API (native browser API)
-- **Icons**: React Icons (Font Awesome and Lucide)
+- **Icons**: React Icons 5.5.0 and Lucide React 0.562.0
 - **Deployment**: GitHub Pages (static export)
 
 ## Development Commands
@@ -86,7 +86,7 @@ Volume automatically adjusts based on average frequency:
 ## Migration Notes (Node.js → Bun)
 
 ### Dependencies
-- **Removed**: `@types/node` - no longer needed with Bun's built-in Node.js compatibility
+- **Still required**: `@types/node` - needed for Next.js TypeScript compilation even with Bun runtime
 - **Previously removed**: `tone`, `recharts` (removed to prevent localStorage SSR issues)
 - **Package management**: `package-lock.json` replaced with `bun.lockb`
 
