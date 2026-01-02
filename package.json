@@ -1,7 +1,7 @@
 {
   "name": "binaural-beat-player",
-  "version": "0.2.1",
-  "homepage": "https://grigio.github.io/bineural-player",
+  "version": "0.2.2",
+  "homepage": "https://grigio.github.io/binaural-beat-player/",
   "private": true,
   "scripts": {
     "dev": "next dev",
