@@ -21,7 +21,7 @@ const Footer = () => {
     // Updated footer styles for dark theme
     <footer className="bg-gray-900 text-gray-400 p-4 mt-auto text-center text-sm border-t border-gray-700"> {/* Dark background, lighter text, top border */}
       <div className="container mx-auto flex justify-between items-center">
-        <span>created by me</span>
+        <span>created by me v{process.env.CUSTOM_VERSION || 'n/a'}</span>
         <div className="flex items-center space-x-4">
           {/* Updated link hover color and use FaGithub */}
           <Link href="https://github.com/grigio/binaural-beat-player" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-200">

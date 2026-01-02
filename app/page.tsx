@@ -47,6 +47,9 @@ const BinauralPlayer: React.FC = () => {
   const animationPhaseRef = useRef<number>(0);
 
   useEffect(() => {
+    // Only initialize audio on client side
+    if (typeof window === 'undefined') return;
+    
     const initAudio = () => {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -226,8 +229,8 @@ const BinauralPlayer: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Ensure canvas logic runs only when mounted and playing
-    if (!isMounted || !isPlaying) return;
+    // Ensure canvas logic runs only when mounted and playing and on client side
+    if (!isMounted || !isPlaying || typeof window === 'undefined') return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
